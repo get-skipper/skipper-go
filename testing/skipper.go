@@ -107,7 +107,7 @@ func (s *SkipperTestMain) finalize(ctx context.Context) error {
 		discoveredMu.Unlock()
 
 		if len(ids) > 0 {
-			if err := core.CacheManager{}.WriteDiscoveredIDs(globalCacheDir, ids); err != nil {
+			if err := (core.CacheManager{}).WriteDiscoveredIDs(globalCacheDir, ids); err != nil {
 				core.Warn(fmt.Sprintf("could not write discovered IDs: %v", err))
 			}
 		}

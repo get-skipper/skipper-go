@@ -101,7 +101,7 @@ func (s *SkipperSuite) TearDownSuite() {
 
 	// Flush discovered IDs to the shared directory if one is configured.
 	if dir := os.Getenv("SKIPPER_DISCOVERED_DIR"); dir != "" {
-		if err := core.CacheManager{}.WriteDiscoveredIDs(dir, s.discoveredIDs); err != nil {
+		if err := (core.CacheManager{}).WriteDiscoveredIDs(dir, s.discoveredIDs); err != nil {
 			core.Warn(fmt.Sprintf("could not write discovered IDs: %v", err))
 		}
 	}
