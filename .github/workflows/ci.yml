@@ -18,19 +18,15 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go }}
-      # Download all workspace dependencies in one pass.
-      # -mod=mod allows Go to update go.sum files as needed.
-      - name: Download dependencies
-        run: go work sync
       - name: Test all modules (unit)
-        run: go test -mod=mod ./...
+        run: go test ./...
       - name: Test core (integration)
-        run: go test -mod=mod -tags integration ./core/...
+        run: go test -tags integration ./core/...
         env:
           GOOGLE_CREDS_B64: ${{ secrets.GOOGLE_CREDS_B64 }}
           SKIPPER_SPREADSHEET_ID: ${{ secrets.SKIPPER_SPREADSHEET_ID }}
       - name: Test framework modules with live spreadsheet
-        run: go test -mod=mod ./testing/... ./testify/... ./ginkgo/...
+        run: go test ./testing/... ./testify/... ./ginkgo/...
         env:
           GOOGLE_CREDS_B64: ${{ secrets.GOOGLE_CREDS_B64 }}
           SKIPPER_SPREADSHEET_ID: ${{ secrets.SKIPPER_SPREADSHEET_ID }}
@@ -43,7 +39,5 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.23'
-      - name: Download dependencies
-        run: go work sync
       - name: Vet all modules
-        run: go vet -mod=mod ./...
+        run: go vet ./...

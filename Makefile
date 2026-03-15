@@ -17,7 +17,6 @@ lint:
 	go vet ./...
 
 tidy:
-	go work sync
 	@for m in $(MODULES); do \
 	  echo "==> Tidying $$m"; \
 	  (cd $$m && go mod tidy); \
