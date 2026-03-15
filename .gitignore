@@ -1,4 +1,2 @@
 service-account-*.json
 *.json.local
-go.work.sum
-*/go.sum

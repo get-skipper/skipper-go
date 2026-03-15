@@ -8,14 +8,15 @@ jobs:
   sync:
     name: Sync spreadsheet
     runs-on: ubuntu-latest
-    needs: []
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: '1.23'
+      - name: Download dependencies
+        run: go work sync
       - name: Sync spreadsheet
-        run: cd core && go test ./...
+        run: go test -mod=mod -tags integration ./core/...
         env:
           SKIPPER_MODE: sync
           GOOGLE_CREDS_B64: ${{ secrets.GOOGLE_CREDS_B64 }}

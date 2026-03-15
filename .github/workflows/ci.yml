@@ -18,25 +18,19 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go }}
-      - name: Test core (unit)
-        run: cd core && go test ./...
+      # Download all workspace dependencies in one pass.
+      # -mod=mod allows Go to update go.sum files as needed.
+      - name: Download dependencies
+        run: go work sync
+      - name: Test all modules (unit)
+        run: go test -mod=mod ./...
       - name: Test core (integration)
-        run: cd core && go test -tags integration ./...
+        run: go test -mod=mod -tags integration ./core/...
         env:
           GOOGLE_CREDS_B64: ${{ secrets.GOOGLE_CREDS_B64 }}
           SKIPPER_SPREADSHEET_ID: ${{ secrets.SKIPPER_SPREADSHEET_ID }}
-      - name: Test testing integration
-        run: cd testing && go test ./...
-        env:
-          GOOGLE_CREDS_B64: ${{ secrets.GOOGLE_CREDS_B64 }}
-          SKIPPER_SPREADSHEET_ID: ${{ secrets.SKIPPER_SPREADSHEET_ID }}
-      - name: Test testify integration
-        run: cd testify && go test ./...
-        env:
-          GOOGLE_CREDS_B64: ${{ secrets.GOOGLE_CREDS_B64 }}
-          SKIPPER_SPREADSHEET_ID: ${{ secrets.SKIPPER_SPREADSHEET_ID }}
-      - name: Test ginkgo integration
-        run: cd ginkgo && go test ./...
+      - name: Test framework modules with live spreadsheet
+        run: go test -mod=mod ./testing/... ./testify/... ./ginkgo/...
         env:
           GOOGLE_CREDS_B64: ${{ secrets.GOOGLE_CREDS_B64 }}
           SKIPPER_SPREADSHEET_ID: ${{ secrets.SKIPPER_SPREADSHEET_ID }}
@@ -49,5 +43,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.23'
+      - name: Download dependencies
+        run: go work sync
       - name: Vet all modules
-        run: make lint
+        run: go vet -mod=mod ./...
