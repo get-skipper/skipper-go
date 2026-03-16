@@ -1,20 +1,23 @@
-MODULES := core testing testify ginkgo
+MODULES     := core testing testify ginkgo
+MODULE_PATH := github.com/get-skipper/skipper-go
 
-.PHONY: build test test-integration lint tidy
+.PHONY: build test lint tidy
 
 build:
-	go build ./core/... ./testing/... ./testify/... ./ginkgo/...
+	@for m in $(MODULES); do \
+	  echo "==> Building $$m"; \
+	  (cd $$m && go build ./...); \
+	done
 
-# Unit tests only (no Google Sheets API calls).
+# Tests skip automatically when Google Sheets credentials are not available.
 test:
-	go test ./core/... ./testing/... ./testify/... ./ginkgo/...
-
-# Integration tests: require GOOGLE_CREDS_B64 or service-account-skipper-bot.json.
-test-integration:
-	go test -tags integration ./core/...
+	go test -p 1 $(addprefix $(MODULE_PATH)/,$(addsuffix /...,$(MODULES)))
 
 lint:
-	go vet ./core/... ./testing/... ./testify/... ./ginkgo/...
+	@for m in $(MODULES); do \
+	  echo "==> Linting $$m"; \
+	  (cd $$m && go vet ./...); \
+	done
 
 tidy:
 	@for m in $(MODULES); do \

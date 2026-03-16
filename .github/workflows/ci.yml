@@ -18,15 +18,8 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go }}
-      - name: Test all modules (unit)
-        run: go test ./core/... ./testing/... ./testify/... ./ginkgo/...
-      - name: Test core (integration)
-        run: go test -tags integration ./core/...
-        env:
-          GOOGLE_CREDS_B64: ${{ secrets.GOOGLE_CREDS_B64 }}
-          SKIPPER_SPREADSHEET_ID: ${{ secrets.SKIPPER_SPREADSHEET_ID }}
-      - name: Test framework modules with live spreadsheet
-        run: go test ./testing/... ./testify/... ./ginkgo/...
+      - name: Test all modules
+        run: make test
         env:
           GOOGLE_CREDS_B64: ${{ secrets.GOOGLE_CREDS_B64 }}
           SKIPPER_SPREADSHEET_ID: ${{ secrets.SKIPPER_SPREADSHEET_ID }}

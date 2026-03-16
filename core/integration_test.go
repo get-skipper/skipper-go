@@ -1,10 +1,5 @@
-//go:build integration
-
 // Integration tests for the SkipperResolver against a real Google Spreadsheet.
-//
-// Run with:
-//
-//	go test -tags integration ./...
+// These tests skip automatically when credentials are not available.
 //
 // Required environment variables or files:
 //   - GOOGLE_CREDS_B64: base64-encoded service account JSON, OR
@@ -112,21 +107,6 @@ func TestIntegration_MarshalCacheRoundTrip(t *testing.T) {
 // spreadsheet when sync mode is enabled. Its test ID is registered so that
 // SKIPPER_MODE=sync adds it (or keeps it) in the "skipper-go" sheet.
 func TestIntegration_Example(t *testing.T) {
-	config := testSpreadsheetConfig(t)
-	r := NewSkipperResolver(config)
-	if err := r.Initialize(context.Background()); err != nil {
-		t.Fatalf("Initialize: %v", err)
-	}
-
-	testID := BuildTestID("core/integration_test.go", []string{"TestIntegration_Example"})
-	t.Logf("test ID: %s", testID)
-
-	if !r.IsTestEnabled(testID) {
-		until := r.GetDisabledUntil(testID)
-		msg := "[skipper] Test disabled"
-		if until != nil {
-			msg += " until " + until.Format("2006-01-02")
-		}
-		t.Skip(msg)
-	}
+	testCredentials(t) // skip if no credentials
+	integrationSkipIfDisabled(t)
 }
