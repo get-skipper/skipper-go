@@ -9,31 +9,26 @@ import (
 
 // testIDFromT derives a Skipper test ID from a testing.T.
 //
-// It uses runtime.Caller to find the source file of the test function and
-// t.Name() to extract the test hierarchy (split on "/").
-//
-// depth is the number of stack frames to skip relative to this function.
-// Callers should pass 1 so that the frame of SkipIfDisabled is skipped and
-// the test function's frame is used.
-func testIDFromCaller(name string, depth int) string {
-	// Walk up the call stack to find the test file (skip internal frames).
-	file := callerFile(depth + 1)
+// It uses runtime.Caller to find the first _test.go file in the call stack
+// and t.Name() to extract the test hierarchy (split on "/").
+func testIDFromCaller(name string, _ int) string {
+	file := callerFile()
 	parts := splitTestName(name)
 	return core.BuildTestID(file, parts)
 }
 
-// callerFile returns the source file path at the given depth above this function.
-func callerFile(depth int) string {
-	for d := depth; d < depth+20; d++ {
-		_, file, _, ok := runtime.Caller(d)
+// callerFile returns the path of the first _test.go file found in the call
+// stack. This is always the user's test file because adapter implementation
+// files (skipper.go, testid.go) are never _test.go files.
+func callerFile() string {
+	for depth := 1; depth < 30; depth++ {
+		_, file, _, ok := runtime.Caller(depth)
 		if !ok {
 			break
 		}
-		// Skip frames from this package and the standard testing package.
-		if isInternalFrame(file) {
-			continue
+		if strings.HasSuffix(file, "_test.go") {
+			return file
 		}
-		return file
 	}
 	return "unknown"
 }
@@ -42,17 +37,17 @@ func callerFile(depth int) string {
 // used in the test ID. For example:
 //
 //	"TestCheckout/with_valid_card" → ["TestCheckout", "with valid card"]
+//
+// Underscores are only restored for subtest names (index > 0) because Go
+// replaces spaces with underscores in t.Run names. The top-level test
+// function name is kept verbatim (underscores there are part of the name).
 func splitTestName(name string) []string {
 	parts := strings.Split(name, "/")
 	for i, p := range parts {
-		// Go replaces spaces with underscores in subtest names; restore them.
-		parts[i] = strings.ReplaceAll(p, "_", " ")
+		if i > 0 {
+			// Go replaces spaces with underscores in subtest names; restore them.
+			parts[i] = strings.ReplaceAll(p, "_", " ")
+		}
 	}
 	return parts
-}
-
-func isInternalFrame(file string) bool {
-	return strings.Contains(file, "skipper-go/testing") ||
-		strings.Contains(file, "testing/testing.go") ||
-		strings.Contains(file, "runtime/")
 }

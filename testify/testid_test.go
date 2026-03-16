@@ -1,6 +1,7 @@
 package testify
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -48,7 +49,7 @@ func TestStripTestPrefix(t *testing.T) {
 	}{
 		{"TestAuthSuite", "AuthSuite"},
 		{"TestFoo", "Foo"},
-		{"AuthSuite", "AuthSuite"},  // no "Test" prefix → unchanged
+		{"AuthSuite", "AuthSuite"}, // no "Test" prefix → unchanged
 		{"Test", ""},               // "Test" alone → empty string
 	}
 
@@ -62,26 +63,12 @@ func TestStripTestPrefix(t *testing.T) {
 	}
 }
 
-func TestIsInternalFrame(t *testing.T) {
-	internalFrames := []string{
-		"/home/user/go/pkg/mod/github.com/stretchr/testify@v1.9.0/suite/suite.go",
-		"/home/user/go/src/skipper-go/testify/suite.go",
-		"/usr/local/go/src/testing/testing.go",
-		"/usr/local/go/src/runtime/proc.go",
+func TestCallerTestFile_ReturnsTestFile(t *testing.T) {
+	file := callerTestFile()
+	if !strings.HasSuffix(file, "_test.go") {
+		t.Errorf("callerTestFile() = %q, want a path ending in _test.go", file)
 	}
-	for _, f := range internalFrames {
-		if !isInternalFrame(f) {
-			t.Errorf("isInternalFrame(%q) = false, want true", f)
-		}
-	}
-
-	externalFrames := []string{
-		"/home/user/myproject/auth_suite_test.go",
-		"/home/user/myproject/internal/payment_suite_test.go",
-	}
-	for _, f := range externalFrames {
-		if isInternalFrame(f) {
-			t.Errorf("isInternalFrame(%q) = true, want false", f)
-		}
+	if file == "unknown" {
+		t.Errorf("callerTestFile() returned %q", file)
 	}
 }

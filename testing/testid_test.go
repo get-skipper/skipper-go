@@ -1,6 +1,7 @@
 package testing
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -22,8 +23,14 @@ func TestSplitTestName(t *testing.T) {
 			want:  []string{"TestAuth", "Login", "as admin"},
 		},
 		{
+			// Top-level name: underscores are part of the function name, not space replacements.
 			input: "TestMultiple_Underscores__Here",
-			want:  []string{"TestMultiple Underscores  Here"},
+			want:  []string{"TestMultiple_Underscores__Here"},
+		},
+		{
+			// Top-level name with underscore, plus a subtest where underscores ARE space replacements.
+			input: "TestFoo_Bar/sub_test",
+			want:  []string{"TestFoo_Bar", "sub test"},
 		},
 	}
 
@@ -43,25 +50,12 @@ func TestSplitTestName(t *testing.T) {
 	}
 }
 
-func TestIsInternalFrame(t *testing.T) {
-	internalFrames := []string{
-		"/home/user/go/src/skipper-go/testing/skipper.go",
-		"/usr/local/go/src/testing/testing.go",
-		"/usr/local/go/src/runtime/proc.go",
+func TestCallerFile_ReturnsTestFile(t *testing.T) {
+	file := callerFile()
+	if !strings.HasSuffix(file, "_test.go") {
+		t.Errorf("callerFile() = %q, want a path ending in _test.go", file)
 	}
-	for _, f := range internalFrames {
-		if !isInternalFrame(f) {
-			t.Errorf("isInternalFrame(%q) = false, want true", f)
-		}
-	}
-
-	externalFrames := []string{
-		"/home/user/myproject/auth_test.go",
-		"/home/user/myproject/internal/service_test.go",
-	}
-	for _, f := range externalFrames {
-		if isInternalFrame(f) {
-			t.Errorf("isInternalFrame(%q) = true, want false", f)
-		}
+	if file == "unknown" {
+		t.Errorf("callerFile() returned %q", file)
 	}
 }

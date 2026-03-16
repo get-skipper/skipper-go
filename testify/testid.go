@@ -10,10 +10,8 @@ import (
 // testIDFromSuite builds a Skipper test ID for a testify suite test.
 //
 // t.Name() inside a testify suite method returns "TestSuiteName/TestMethodName".
-// We split on "/" and walk the call stack to find the actual test file,
-// skipping testify and skipper internal frames.
-func testIDFromSuite(name string) string {
-	file := callerTestFile()
+// We split on "/" and combine with the file path captured at SetupSuite time.
+func testIDFromSuite(name, file string) string {
 	parts := splitSuiteName(name)
 	return core.BuildTestID(file, parts)
 }
@@ -41,26 +39,18 @@ func stripTestPrefix(s string) string {
 	return s
 }
 
-// callerTestFile walks the call stack to find the first frame that belongs
-// to user test code (not testify, not skipper, not the Go runtime).
+// callerTestFile walks the call stack and returns the path of the first
+// _test.go file found. Called from SetupSuite where the user's TestXxx
+// function is still in the goroutine's call stack.
 func callerTestFile() string {
 	for depth := 1; depth < 30; depth++ {
 		_, file, _, ok := runtime.Caller(depth)
 		if !ok {
 			break
 		}
-		if isInternalFrame(file) {
-			continue
+		if strings.HasSuffix(file, "_test.go") {
+			return file
 		}
-		return file
 	}
 	return "unknown"
-}
-
-func isInternalFrame(file string) bool {
-	return strings.Contains(file, "testify/suite") ||
-		strings.Contains(file, "stretchr/testify") ||
-		strings.Contains(file, "skipper-go/testify") ||
-		strings.Contains(file, "testing/testing.go") ||
-		strings.Contains(file, "runtime/")
 }
