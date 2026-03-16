@@ -106,6 +106,17 @@ func RegisterSkipperHooks(config core.SkipperConfig) {
 			copy(ids, discoveredIDs)
 			discoveredMu.Unlock()
 
+			scanned := core.ScanPackageTests()
+			seen := make(map[string]struct{}, len(ids))
+			for _, id := range ids {
+				seen[core.NormalizeTestID(id)] = struct{}{}
+			}
+			for _, id := range scanned {
+				if _, ok := seen[core.NormalizeTestID(id)]; !ok {
+					ids = append(ids, id)
+				}
+			}
+
 			writer := core.NewSheetsWriter(config)
 			if err := writer.Sync(context.Background(), ids); err != nil {
 				fmt.Fprintf(os.Stderr, "[skipper] sync failed: %v\n", err)

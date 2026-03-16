@@ -42,12 +42,18 @@ type SkipperSuite struct {
 	Config        core.SkipperConfig
 	resolver      *core.SkipperResolver
 	discoveredIDs []string
+	suiteFile     string // source file captured in SetupSuite while TestXxx is in the stack
 }
 
 // SetupSuite initializes the Skipper resolver once before the suite's tests run.
 // If SKIPPER_CACHE_FILE is set, the resolver is rehydrated from the cache file
 // instead of fetching from Google Sheets.
 func (s *SkipperSuite) SetupSuite() {
+	// Capture the suite's source file now, while the user's TestXxx function
+	// is still in the call stack. It won't be available later (SetupTest runs
+	// in a subtest goroutine that doesn't include the original TestXxx frame).
+	s.suiteFile = callerTestFile()
+
 	if cacheFile := os.Getenv("SKIPPER_CACHE_FILE"); cacheFile != "" {
 		core.Logf("rehydrating resolver from cache file %s", cacheFile)
 		data, err := core.CacheManager{}.ReadResolverCache(cacheFile)
@@ -61,6 +67,10 @@ func (s *SkipperSuite) SetupSuite() {
 			return
 		}
 		s.resolver = r
+		return
+	}
+
+	if s.Config.Credentials == nil {
 		return
 	}
 
@@ -79,7 +89,7 @@ func (s *SkipperSuite) SetupTest() {
 		return
 	}
 
-	testID := testIDFromSuite(s.T().Name())
+	testID := testIDFromSuite(s.T().Name(), s.suiteFile)
 	s.discoveredIDs = append(s.discoveredIDs, testID)
 
 	if !s.resolver.IsTestEnabled(testID) {
@@ -108,6 +118,23 @@ func (s *SkipperSuite) TearDownSuite() {
 
 	if core.SkipperModeFromEnv() != core.SkipperModeSync {
 		return
+	}
+
+	if s.Config.Credentials == nil {
+		return
+	}
+
+	// Include all top-level TestXxx functions discovered via source scanning
+	// so tests that don't call SkipIfDisabled are also tracked.
+	scanned := core.ScanPackageTests()
+	seen := make(map[string]struct{}, len(s.discoveredIDs))
+	for _, id := range s.discoveredIDs {
+		seen[core.NormalizeTestID(id)] = struct{}{}
+	}
+	for _, id := range scanned {
+		if _, ok := seen[core.NormalizeTestID(id)]; !ok {
+			s.discoveredIDs = append(s.discoveredIDs, id)
+		}
 	}
 
 	writer := core.NewSheetsWriter(s.Config)

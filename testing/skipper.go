@@ -29,10 +29,11 @@ import (
 )
 
 var (
-	globalResolver   *core.SkipperResolver
-	globalCacheDir   string
-	discoveredMu     sync.Mutex
-	discoveredIDs    []string
+	globalResolver *core.SkipperResolver
+	globalCacheDir string
+	discoveredMu   sync.Mutex
+	discoveredIDs  []string
+	preScannedIDs  []string
 )
 
 // SkipperTestMain wraps testing.M to initialize and finalize Skipper.
@@ -73,6 +74,7 @@ func (s *SkipperTestMain) initialize(ctx context.Context) error {
 			return err
 		}
 		globalResolver = r
+		preScannedIDs = core.ScanPackageTests()
 		return nil
 	}
 
@@ -95,6 +97,7 @@ func (s *SkipperTestMain) initialize(ctx context.Context) error {
 	os.Setenv("SKIPPER_CACHE_FILE", dir+"/cache.json")
 	os.Setenv("SKIPPER_DISCOVERED_DIR", dir)
 
+	preScannedIDs = core.ScanPackageTests()
 	return nil
 }
 
@@ -130,6 +133,17 @@ func (s *SkipperTestMain) finalize(ctx context.Context) error {
 			ids = make([]string, len(discoveredIDs))
 			copy(ids, discoveredIDs)
 			discoveredMu.Unlock()
+		}
+
+		// Merge pre-scanned IDs (tests without SkipIfDisabled) into the sync list.
+		existing := make(map[string]struct{}, len(ids))
+		for _, id := range ids {
+			existing[core.NormalizeTestID(id)] = struct{}{}
+		}
+		for _, id := range preScannedIDs {
+			if _, ok := existing[core.NormalizeTestID(id)]; !ok {
+				ids = append(ids, id)
+			}
 		}
 
 		writer := core.NewSheetsWriter(s.Config)
