@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 
@@ -111,7 +112,8 @@ func (w *SheetsWriter) Sync(ctx context.Context, discoveredIDs []string) error {
 	}
 
 	// Delete rows in descending order to avoid index shifting.
-	if len(rowsToDelete) > 0 {
+	// Deletion is opt-in: set SKIPPER_SYNC_ALLOW_DELETE=true to enable.
+	if len(rowsToDelete) > 0 && SyncAllowDelete() {
 		sort.Sort(sort.Reverse(sort.IntSlice(rowsToDelete)))
 		var reqs []*sheets.Request
 		for _, rowIdx := range rowsToDelete {
@@ -133,6 +135,8 @@ func (w *SheetsWriter) Sync(ctx context.Context, discoveredIDs []string) error {
 			return fmt.Errorf("skipper: batch delete failed: %w", err)
 		}
 		Logf("deleted %d rows from spreadsheet", len(rowsToDelete))
+	} else if len(rowsToDelete) > 0 {
+		Logf("skipping deletion of %d orphaned rows (set SKIPPER_SYNC_ALLOW_DELETE=true to enable)", len(rowsToDelete))
 	}
 
 	// Append new rows.
@@ -159,4 +163,10 @@ func (w *SheetsWriter) Sync(ctx context.Context, discoveredIDs []string) error {
 	}
 
 	return nil
+}
+
+// SyncAllowDelete reports whether orphaned rows should be deleted during Sync.
+// Controlled by SKIPPER_SYNC_ALLOW_DELETE (default: false).
+func SyncAllowDelete() bool {
+	return strings.EqualFold(os.Getenv("SKIPPER_SYNC_ALLOW_DELETE"), "true")
 }

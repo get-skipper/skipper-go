@@ -10,6 +10,56 @@ import (
 	"time"
 )
 
+// DiskCacheFile is the name of the persistent on-disk cache written after a
+// successful API fetch. Tests may override this variable to use a temp path.
+var DiskCacheFile = ".skipper-cache.json"
+
+// diskCacheEntry is the JSON structure persisted to DiskCacheFile.
+type diskCacheEntry struct {
+	WrittenAt time.Time       `json:"written_at"`
+	Data      json.RawMessage `json:"data"`
+}
+
+// WriteDiskCache serialises resolver data together with a timestamp and writes
+// it to DiskCacheFile. The file is only readable by the current user (0o600).
+// HTML escaping is disabled so that test-ID separators (e.g. " > ") are stored
+// verbatim rather than being encoded as "\u003e".
+func WriteDiskCache(data []byte) error {
+	entry := diskCacheEntry{
+		WrittenAt: time.Now().UTC(),
+		Data:      json.RawMessage(data),
+	}
+	f, err := os.OpenFile(DiskCacheFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	if err != nil {
+		return fmt.Errorf("skipper: cannot write disk cache: %w", err)
+	}
+	defer f.Close()
+	enc := json.NewEncoder(f)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(entry); err != nil {
+		return fmt.Errorf("skipper: cannot marshal disk cache: %w", err)
+	}
+	return nil
+}
+
+// LoadDiskCache reads DiskCacheFile and returns the resolver data if the cache
+// was written within ttl. Returns an error if the file is missing, unreadable,
+// malformed, or expired.
+func LoadDiskCache(ttl time.Duration) ([]byte, error) {
+	b, err := os.ReadFile(DiskCacheFile)
+	if err != nil {
+		return nil, fmt.Errorf("skipper: cannot read disk cache: %w", err)
+	}
+	var entry diskCacheEntry
+	if err := json.Unmarshal(b, &entry); err != nil {
+		return nil, fmt.Errorf("skipper: malformed disk cache: %w", err)
+	}
+	if time.Since(entry.WrittenAt) > ttl {
+		return nil, fmt.Errorf("skipper: disk cache expired (age %s > ttl %s)", time.Since(entry.WrittenAt).Round(time.Second), ttl)
+	}
+	return entry.Data, nil
+}
+
 // CacheManager manages the temporary directory used to share resolver state
 // between the main test process and any parallel worker processes.
 type CacheManager struct{}

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestCacheManager_WriteAndReadResolverCache(t *testing.T) {
@@ -131,6 +132,71 @@ func TestCacheManager_Cleanup(t *testing.T) {
 	}
 	if _, err := os.Stat(dir); !os.IsNotExist(err) {
 		t.Errorf("expected dir %s to be removed", dir)
+	}
+}
+
+// ---- Disk cache (WriteDiskCache / LoadDiskCache) ----------------------------
+
+func TestWriteAndLoadDiskCache_RoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	origFile := DiskCacheFile
+	DiskCacheFile = filepath.Join(dir, ".skipper-cache.json")
+	t.Cleanup(func() { DiskCacheFile = origFile })
+
+	payload := []byte(`{"some/test.go > testfoo":null}`)
+	if err := WriteDiskCache(payload); err != nil {
+		t.Fatalf("WriteDiskCache: %v", err)
+	}
+
+	got, err := LoadDiskCache(300 * time.Second)
+	if err != nil {
+		t.Fatalf("LoadDiskCache: %v", err)
+	}
+	if string(got) != string(payload) {
+		t.Errorf("got %q, want %q", string(got), string(payload))
+	}
+}
+
+func TestLoadDiskCache_MissingFile(t *testing.T) {
+	dir := t.TempDir()
+	origFile := DiskCacheFile
+	DiskCacheFile = filepath.Join(dir, "nonexistent.json")
+	t.Cleanup(func() { DiskCacheFile = origFile })
+
+	if _, err := LoadDiskCache(300 * time.Second); err == nil {
+		t.Error("expected error for missing disk cache file")
+	}
+}
+
+func TestLoadDiskCache_ExpiredCache(t *testing.T) {
+	dir := t.TempDir()
+	origFile := DiskCacheFile
+	DiskCacheFile = filepath.Join(dir, ".skipper-cache.json")
+	t.Cleanup(func() { DiskCacheFile = origFile })
+
+	// Write a cache entry with a timestamp far in the past.
+	stale := `{"written_at":"2000-01-01T00:00:00Z","data":{}}`
+	if err := os.WriteFile(DiskCacheFile, []byte(stale), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := LoadDiskCache(300 * time.Second); err == nil {
+		t.Error("expected error for expired disk cache")
+	}
+}
+
+func TestLoadDiskCache_MalformedJSON(t *testing.T) {
+	dir := t.TempDir()
+	origFile := DiskCacheFile
+	DiskCacheFile = filepath.Join(dir, ".skipper-cache.json")
+	t.Cleanup(func() { DiskCacheFile = origFile })
+
+	if err := os.WriteFile(DiskCacheFile, []byte("not-json"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := LoadDiskCache(300 * time.Second); err == nil {
+		t.Error("expected error for malformed disk cache JSON")
 	}
 }
 

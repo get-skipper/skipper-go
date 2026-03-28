@@ -78,6 +78,20 @@ chore: update google.golang.org/api to v0.190.0
 
 ---
 
+## Changelog
+
+All notable changes are recorded in [CHANGELOG.md](CHANGELOG.md) following the
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
+
+- Entries live under `## [Unreleased]` until a release is cut.
+- Every change belongs to one of: `Added`, `Changed`, `Deprecated`, `Removed`,
+  `Fixed`, `Security`.
+- When a new version is released, rename `## [Unreleased]` to
+  `## [x.y.z] – YYYY-MM-DD`, add a fresh empty `## [Unreleased]` section at
+  the top, and append a comparison link at the bottom of the file.
+
+---
+
 ## Pull requests
 
 1. Fork the repository and create a branch:

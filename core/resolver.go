@@ -4,14 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"strconv"
 	"time"
 )
 
 // SkipperResolver fetches a Google Spreadsheet and determines whether
 // individual tests should run based on their disabledUntil dates.
 type SkipperResolver struct {
-	config SkipperConfig
-	client *SheetsClient
+	config  SkipperConfig
+	client  *SheetsClient
+	fetchFn func(ctx context.Context) (*FetchAllResult, error) // nil in production; injected in tests
 	// cache maps normalized test IDs to their disabledUntil date.
 	// A nil value means the test has no date and is enabled.
 	cache map[string]*time.Time
@@ -28,10 +31,41 @@ func NewSkipperResolver(config SkipperConfig) *SkipperResolver {
 
 // Initialize fetches the spreadsheet and populates the internal cache.
 // Must be called once before IsTestEnabled.
+//
+// Safety behaviours (all configurable via environment variables):
+//   - SKIPPER_FAIL_OPEN (default "true"): when the API is unreachable and no
+//     usable disk cache exists, return nil instead of an error so that all
+//     tests are allowed to run.
+//   - SKIPPER_CACHE_TTL (default "300"): seconds to keep the on-disk cache
+//     (.skipper-cache.json) valid. Set to "0" to disable disk caching.
 func (r *SkipperResolver) Initialize(ctx context.Context) error {
 	Log("initializing resolver")
-	result, err := r.client.FetchAll(ctx)
+
+	fetch := r.fetchFn
+	if fetch == nil {
+		fetch = r.client.FetchAll
+	}
+
+	result, err := fetch(ctx)
 	if err != nil {
+		// API unavailable — try the on-disk TTL cache first.
+		if ttl := CacheTTL(); ttl > 0 {
+			if data, cerr := LoadDiskCache(ttl); cerr == nil {
+				restored, rerr := FromMarshaledCache(data)
+				if rerr == nil {
+					r.cache = restored.cache
+					Logf("API unavailable; loaded resolver cache from disk: %v", err)
+					return nil
+				}
+				Warn(fmt.Sprintf("disk cache unreadable: %v", rerr))
+			}
+		}
+
+		// No usable cache — honour SKIPPER_FAIL_OPEN (default: true).
+		if FailOpen() {
+			Warn(fmt.Sprintf("skipper: initialize failed, running in fail-open mode (all tests enabled): %v", err))
+			return nil
+		}
 		return fmt.Errorf("skipper: initialize failed: %w", err)
 	}
 
@@ -41,7 +75,49 @@ func (r *SkipperResolver) Initialize(ctx context.Context) error {
 	}
 
 	Logf("loaded %d test entries from spreadsheet", len(r.cache))
+
+	// Persist a fresh disk cache for future fail-over use.
+	if ttl := CacheTTL(); ttl > 0 {
+		data, merr := r.MarshalCache()
+		if merr == nil {
+			if werr := WriteDiskCache(data); werr != nil {
+				Warn(fmt.Sprintf("could not write disk cache: %v", werr))
+			} else {
+				Logf("wrote disk cache to %s (TTL %s)", DiskCacheFile, ttl)
+			}
+		}
+	}
+
 	return nil
+}
+
+// FailOpen returns the value of SKIPPER_FAIL_OPEN (default: true).
+// When true, Initialize returns nil instead of an error if the API is
+// unreachable and no usable disk cache exists.
+func FailOpen() bool {
+	v := os.Getenv("SKIPPER_FAIL_OPEN")
+	if v == "" {
+		return true
+	}
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		return true
+	}
+	return b
+}
+
+// CacheTTL returns the disk-cache TTL derived from SKIPPER_CACHE_TTL
+// (default: 300 s). A value of 0 disables the disk cache entirely.
+func CacheTTL() time.Duration {
+	v := os.Getenv("SKIPPER_CACHE_TTL")
+	if v == "" {
+		return 300 * time.Second
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 0 {
+		return 300 * time.Second
+	}
+	return time.Duration(n) * time.Second
 }
 
 // IsTestEnabled reports whether a test should run.
