@@ -212,16 +212,19 @@ var _ = Describe("Auth", func() {
 | `read-only` (default) | — | Fetch spreadsheet, skip disabled tests |
 | `sync` | `SKIPPER_MODE=sync` | Same as above, then reconcile spreadsheet with discovered tests |
 
-In sync mode, new tests are added to the spreadsheet and deleted tests are removed.
+In sync mode, new tests are added to the spreadsheet. Deletion of orphaned rows requires `SKIPPER_SYNC_ALLOW_DELETE=true`.
 
 ---
 
 ## Environment variables
 
-| Variable | Description |
-|----------|-------------|
-| `SKIPPER_MODE` | `sync` to enable sync mode (default: `read-only`) |
-| `SKIPPER_DEBUG` | Any non-empty value enables verbose debug logging |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SKIPPER_MODE` | `read-only` | Set to `sync` to enable sync mode |
+| `SKIPPER_DEBUG` | — | Any non-empty value enables verbose debug logging |
+| `SKIPPER_FAIL_OPEN` | `true` | When `true`, `Initialize` returns `nil` instead of an error if the API is unreachable and no usable disk cache exists, so all tests are allowed to run rather than blocking CI/CD |
+| `SKIPPER_CACHE_TTL` | `300` | Seconds to keep the on-disk cache (`.skipper-cache.json`) as a fallback when the API is unavailable. Set to `0` to disable caching |
+| `SKIPPER_SYNC_ALLOW_DELETE` | `false` | In sync mode, orphaned rows are **not** deleted by default. Set to `true` to restore automatic pruning of tests that no longer exist |
 
 ---
 
