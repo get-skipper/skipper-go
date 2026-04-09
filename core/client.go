@@ -3,12 +3,16 @@ package core
 import (
 	"context"
 	"fmt"
+	"regexp"
+	"strings"
 	"time"
 
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
 	"google.golang.org/api/sheets/v4"
 )
+
+var dateRe = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 
 const sheetsScope = "https://www.googleapis.com/auth/spreadsheets"
 
@@ -127,7 +131,8 @@ func (c *SheetsClient) fetchSheet(
 	sheetID := sheetIDByName(spreadsheet, sheetName)
 
 	var entries []TestEntry
-	for _, row := range resp.Values[1:] {
+	for i, row := range resp.Values[1:] {
+		rowNum := i + 2 // row 1 is the header; data rows start at 2
 		if testIDIdx >= len(row) {
 			continue
 		}
@@ -139,11 +144,11 @@ func (c *SheetsClient) fetchSheet(
 		var disabledUntil *time.Time
 		if disabledUntilIdx >= 0 {
 			if raw := cellString(row, disabledUntilIdx); raw != "" {
-				if t, err := parseDate(raw); err == nil {
-					disabledUntil = &t
-				} else {
-					Warn(fmt.Sprintf("cannot parse disabledUntil %q for test %q: %v", raw, testID, err))
+				t, err := parseDisabledUntil(raw, rowNum)
+				if err != nil {
+					return SheetFetchResult{}, err
 				}
+				disabledUntil = &t
 			}
 		}
 
@@ -206,18 +211,24 @@ func moreRestrictive(candidate, current *time.Time) bool {
 	return candidate.After(*current)
 }
 
-func parseDate(s string) (time.Time, error) {
-	formats := []string{
-		"2006-01-02",
-		time.RFC3339,
-		"2006-01-02T15:04:05",
+// parseDisabledUntil parses a strict YYYY-MM-DD date string pinned to UTC.
+// It returns the midnight UTC of the day AFTER the given date so that
+// "disabled until 2026-04-01" means through end of that calendar day UTC.
+// An empty or whitespace-only string returns a zero Time (not disabled).
+// Any string not matching YYYY-MM-DD returns an error with the row number.
+func parseDisabledUntil(raw string, rowNum int) (time.Time, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return time.Time{}, nil
 	}
-	for _, f := range formats {
-		if t, err := time.Parse(f, s); err == nil {
-			return t, nil
-		}
+	if !dateRe.MatchString(raw) {
+		return time.Time{}, fmt.Errorf("[skipper] row %d: invalid disabledUntil %q — use YYYY-MM-DD", rowNum, raw)
 	}
-	return time.Time{}, fmt.Errorf("unrecognised date format: %q", s)
+	t, err := time.ParseInLocation("2006-01-02", raw, time.UTC)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("[skipper] row %d: cannot parse date %q: %w", rowNum, raw, err)
+	}
+	return t.AddDate(0, 0, 1), nil
 }
 
 func indexOf(header []string, col string) int {

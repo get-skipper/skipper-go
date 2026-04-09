@@ -134,7 +134,7 @@ func (r *SkipperResolver) IsTestEnabled(testID string) bool {
 	if disabledUntil == nil {
 		return true
 	}
-	return !disabledUntil.After(time.Now())
+	return !time.Now().UTC().Before(*disabledUntil)
 }
 
 // GetDisabledUntil returns the disabledUntil date for a test ID, or nil if

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Strict `disabledUntil` date parsing**: replaced the lenient multi-format
+  parser with a strict `YYYY-MM-DD`-only implementation. Partial dates, locale
+  formats, and datetime strings are now rejected immediately with a row-numbered
+  error instead of being silently ignored.
+- **Timezone-consistent expiry**: dates are now parsed in UTC via
+  `time.ParseInLocation` and stored as midnight UTC of the day *after* the given
+  date (e.g. `2026-04-01` expires at `2026-04-02T00:00:00Z`). All CI runners
+  reach the same expiry instant regardless of their local timezone.
+- Empty or whitespace `disabledUntil` values continue to be treated as "not
+  disabled" (no error).
+
 ## [1.1.0] – 2026-03-28
 
 ### Added

@@ -5,37 +5,63 @@ import (
 	"time"
 )
 
-func TestParseDate(t *testing.T) {
+func TestParseDisabledUntil(t *testing.T) {
 	tests := []struct {
-		input   string
-		wantErr bool
-		wantUTC string // expected UTC date portion, empty means error expected
+		input    string
+		wantErr  bool
+		wantZero bool   // true when empty input → zero Time, no error
+		wantUTC  string // expected UTC date of the day-after (midnight), non-empty means valid
 	}{
-		{input: "2099-12-31", wantUTC: "2099-12-31"},
-		{input: "2099-12-31T23:59:59+00:00", wantUTC: "2099-12-31"},
-		{input: "2099-12-31T23:59:59", wantUTC: "2099-12-31"},
+		// Valid YYYY-MM-DD: stored as midnight UTC of the NEXT day.
+		{input: "2099-12-31", wantUTC: "2100-01-01"},
+		{input: "2026-04-01", wantUTC: "2026-04-02"},
+		// Empty / whitespace: not disabled, no error.
+		{input: "", wantZero: true},
+		{input: "   ", wantZero: true},
+		// Malformed dates must error.
+		{input: "2026-4-1", wantErr: true},   // partial digits
+		{input: "31/12/2099", wantErr: true},  // locale format
 		{input: "not-a-date", wantErr: true},
-		{input: "", wantErr: true},
-		{input: "31/12/2099", wantErr: true},
+		{input: "2099-12-31T23:59:59", wantErr: true}, // datetime rejected
+		{input: "2099-12-31T23:59:59+00:00", wantErr: true},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.input, func(t *testing.T) {
-			got, err := parseDate(tc.input)
+			got, err := parseDisabledUntil(tc.input, 1)
 			if tc.wantErr {
 				if err == nil {
-					t.Errorf("parseDate(%q) expected error, got nil", tc.input)
+					t.Errorf("parseDisabledUntil(%q) expected error, got nil", tc.input)
 				}
 				return
 			}
 			if err != nil {
-				t.Fatalf("parseDate(%q) unexpected error: %v", tc.input, err)
+				t.Fatalf("parseDisabledUntil(%q) unexpected error: %v", tc.input, err)
+			}
+			if tc.wantZero {
+				if !got.IsZero() {
+					t.Errorf("parseDisabledUntil(%q) expected zero Time, got %v", tc.input, got)
+				}
+				return
 			}
 			gotDate := got.UTC().Format("2006-01-02")
 			if gotDate != tc.wantUTC {
-				t.Errorf("parseDate(%q) date = %q, want %q", tc.input, gotDate, tc.wantUTC)
+				t.Errorf("parseDisabledUntil(%q) date = %q, want %q", tc.input, gotDate, tc.wantUTC)
 			}
 		})
+	}
+}
+
+func TestParseDisabledUntil_UTCConsistency(t *testing.T) {
+	// The same date string must always resolve to the same UTC instant,
+	// regardless of the runner's local timezone.
+	got, err := parseDisabledUntil("2026-04-01", 1)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := time.Date(2026, 4, 2, 0, 0, 0, 0, time.UTC)
+	if !got.Equal(want) {
+		t.Errorf("got %v, want %v", got, want)
 	}
 }
 
