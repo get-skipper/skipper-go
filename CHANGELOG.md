@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] – 2026-04-09
+
 ### Fixed
 
 - **Strict `disabledUntil` date parsing**: replaced the lenient multi-format
@@ -49,6 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reference-sheet support for shared disabled-test lists.
 - Test ID anchoring to workspace/module root via `ScanPackageTests`.
 
-[Unreleased]: https://github.com/get-skipper/skipper-go/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/get-skipper/skipper-go/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/get-skipper/skipper-go/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/get-skipper/skipper-go/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/get-skipper/skipper-go/releases/tag/v1.0.0
