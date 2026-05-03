@@ -142,3 +142,13 @@ func (s *SkipperSuite) TearDownSuite() {
 		fmt.Fprintf(os.Stderr, "[skipper] sync failed: %v\n", err)
 	}
 }
+
+// Report generates and emits the quarantine report for this suite.
+// Call it from TearDownSuite or after suite.Run in your test function.
+func (s *SkipperSuite) Report() error {
+	if s.resolver == nil {
+		return nil
+	}
+	report := core.GenerateReport(s.resolver)
+	return core.WriteReport(report)
+}

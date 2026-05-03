@@ -152,6 +152,11 @@ func (s *SkipperTestMain) finalize(ctx context.Context) error {
 		}
 	}
 
+	// Generate and emit quarantine report
+	if err := emitReport(); err != nil {
+		core.Warn(fmt.Sprintf("could not generate report: %v", err))
+	}
+
 	if globalCacheDir != "" {
 		core.CacheManager{}.Cleanup(globalCacheDir)
 	}
@@ -184,4 +189,29 @@ func SkipIfDisabled(t *stdtesting.T) {
 		}
 		t.Skip(msg)
 	}
+}
+
+// Report generates and emits the quarantine report to GitHub Actions job summary
+// and skipper-report.json. Call this from TestMain after running tests.
+//
+// Example:
+//
+//	func TestMain(m *testing.M) {
+//	    s := &skippertest.SkipperTestMain{
+//	        Config: core.SkipperConfig{...},
+//	    }
+//	    code := s.Run(m)
+//	    skippertest.Report() // Generate and emit report
+//	    os.Exit(code)
+//	}
+func Report() error {
+	return emitReport()
+}
+
+func emitReport() error {
+	if globalResolver == nil {
+		return nil
+	}
+	report := core.GenerateReport(globalResolver)
+	return core.WriteReport(report)
 }

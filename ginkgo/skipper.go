@@ -26,6 +26,11 @@ import (
 	ginkgo "github.com/onsi/ginkgo/v2"
 )
 
+var (
+	globalResolverMu sync.Mutex
+	globalResolver   *core.SkipperResolver
+)
+
 // RegisterSkipperHooks installs Ginkgo lifecycle hooks that initialize the
 // Skipper resolver, skip disabled specs, and (in sync mode) reconcile the
 // spreadsheet after the suite finishes.
@@ -53,6 +58,9 @@ func RegisterSkipperHooks(config core.SkipperConfig) {
 				return nil
 			}
 			resolver = r
+			globalResolverMu.Lock()
+			globalResolver = r
+			globalResolverMu.Unlock()
 			return data
 		},
 		func(data []byte) {
@@ -63,6 +71,9 @@ func RegisterSkipperHooks(config core.SkipperConfig) {
 				return
 			}
 			resolver = r
+			globalResolverMu.Lock()
+			globalResolver = r
+			globalResolverMu.Unlock()
 		},
 	)
 
@@ -123,4 +134,18 @@ func RegisterSkipperHooks(config core.SkipperConfig) {
 			}
 		},
 	)
+}
+
+// Report generates and emits the quarantine report.
+// Call it after RunSpecs completes in your test function.
+func Report() error {
+	globalResolverMu.Lock()
+	resolver := globalResolver
+	globalResolverMu.Unlock()
+
+	if resolver == nil {
+		return nil
+	}
+	report := core.GenerateReport(resolver)
+	return core.WriteReport(report)
 }
