@@ -3,6 +3,7 @@ package core
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"time"
 )
@@ -50,7 +51,7 @@ func GenerateReport(resolver *SkipperResolver) *Report {
 			}
 
 			// Add to debt: days from now until disabledUntil
-			days := int(disabledUntil.Sub(now).Hours() / 24)
+			days := int(math.Ceil(disabledUntil.Sub(now).Hours() / 24))
 			quarantineDaysDebt += days
 		} else {
 			// Test is reenabled (was disabled but date passed)
