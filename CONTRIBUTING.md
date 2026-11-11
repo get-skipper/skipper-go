@@ -89,6 +89,11 @@ All notable changes are recorded in [CHANGELOG.md](CHANGELOG.md) following the
 - When a new version is released, rename `## [Unreleased]` to
   `## [x.y.z] – YYYY-MM-DD`, add a fresh empty `## [Unreleased]` section at
   the top, and append a comparison link at the bottom of the file.
+- This repo holds several Go modules, so each release needs one tag per module
+  on the same commit: `vX.Y.Z`, `core/vX.Y.Z`, `testing/vX.Y.Z`,
+  `testify/vX.Y.Z`, `ginkgo/vX.Y.Z`. Before tagging, set the
+  `github.com/get-skipper/skipper-go/core` requirement in the adapters'
+  `go.mod` to the new version (the `replace` keeps local builds on `../core`).
 
 ---
 

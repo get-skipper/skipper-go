@@ -2,7 +2,7 @@ module github.com/get-skipper/skipper-go/testing
 
 go 1.21
 
-require github.com/get-skipper/skipper-go/core v0.0.0-00010101000000-000000000000
+require github.com/get-skipper/skipper-go/core v1.3.3
 
 require (
 	cloud.google.com/go/auth v0.6.0 // indirect

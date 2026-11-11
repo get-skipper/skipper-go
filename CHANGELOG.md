@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.3] – 2026-11-11
+
+### Fixed
+
+- **`go get` works for the adapters**: `testing`, `testify` and `ginkgo` now
+  require a real `core` version instead of an unresolvable placeholder, and
+  every module is tagged (`core/v1.3.3`, `testing/v1.3.3`, …).
+
 ## [1.3.2] – 2026-11-11
 
 ### Fixed
