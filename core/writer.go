@@ -75,33 +75,7 @@ func (w *SheetsWriter) Sync(ctx context.Context, discoveredIDs []string) error {
 		existingMap[NormalizeTestID(e.TestID)] = e.TestID
 	}
 
-	// Identify rows to delete. Row indices are 0-based; row 0 is the header.
-	// We delete a row when:
-	//   (a) it is malformed (no " > " separator) — leftover from a previous bug, or
-	//   (b) its file path is owned by this sync and it is no longer discovered.
-	var rowsToDelete []int
-	for i, e := range primary.Entries {
-		normalized := NormalizeTestID(e.TestID)
-		idx := strings.Index(normalized, " > ")
-		if idx < 0 {
-			// Malformed row — clean it up unconditionally.
-			rowsToDelete = append(rowsToDelete, i+1)
-			continue
-		}
-		file := normalized[:idx]
-		_, owned := ownedFiles[file]
-		if !owned && !strings.Contains(file, "/") {
-			// Bare filename (no directory) — check if it's a stale entry for
-			// one of our files that was written before path anchoring was fixed.
-			_, owned = ownedBases[file]
-		}
-		if !owned {
-			continue // belongs to another package's sync — leave it alone
-		}
-		if _, ok := discoveredSet[normalized]; !ok {
-			rowsToDelete = append(rowsToDelete, i+1) // +1 for header row
-		}
-	}
+	rowsToDelete := staleRows(primary.Entries, ownedFiles, ownedBases, discoveredSet)
 
 	// Identify test IDs to add (discovered but not in spreadsheet).
 	var toAdd []string
@@ -169,4 +143,38 @@ func (w *SheetsWriter) Sync(ctx context.Context, discoveredIDs []string) error {
 // Controlled by SKIPPER_SYNC_ALLOW_DELETE (default: false).
 func SyncAllowDelete() bool {
 	return strings.EqualFold(os.Getenv("SKIPPER_SYNC_ALLOW_DELETE"), "true")
+}
+
+// staleRows returns the sheet row indices (0-based; row 0 is the header) to
+// delete. A row is deleted when:
+//
+//	(a) it is malformed (no " > " separator) — leftover from a previous bug, or
+//	(b) its file path is owned by this sync and it is no longer discovered.
+//
+// It uses each entry's real row index, since blank rows are skipped on fetch.
+func staleRows(entries []TestEntry, ownedFiles, ownedBases, discoveredSet map[string]struct{}) []int {
+	var rows []int
+	for _, e := range entries {
+		normalized := NormalizeTestID(e.TestID)
+		idx := strings.Index(normalized, " > ")
+		if idx < 0 {
+			// Malformed row — clean it up unconditionally.
+			rows = append(rows, e.Row)
+			continue
+		}
+		file := normalized[:idx]
+		_, owned := ownedFiles[file]
+		if !owned && !strings.Contains(file, "/") {
+			// Bare filename (no directory) — check if it's a stale entry for
+			// one of our files that was written before path anchoring was fixed.
+			_, owned = ownedBases[file]
+		}
+		if !owned {
+			continue // belongs to another package's sync — leave it alone
+		}
+		if _, ok := discoveredSet[normalized]; !ok {
+			rows = append(rows, e.Row)
+		}
+	}
+	return rows
 }

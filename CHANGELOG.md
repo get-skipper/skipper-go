@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.2] – 2026-11-11
+
+### Fixed
+
+- **Sync deletes the right rows when the sheet has blank rows**: entries now
+  carry their real sheet row index (`TestEntry.Row`), and the writer deletes by
+  that index instead of the entry's position in the list (#4).
+
 ## [1.2.0] – 2026-04-09
 
 ### Fixed

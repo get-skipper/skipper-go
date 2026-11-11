@@ -21,6 +21,7 @@ type TestEntry struct {
 	TestID        string
 	DisabledUntil *time.Time // nil means no date → test is enabled
 	Notes         string
+	Row           int // 0-based sheet row index (header is row 0)
 }
 
 // SheetFetchResult holds the parsed data from a single sheet.
@@ -161,6 +162,7 @@ func (c *SheetsClient) fetchSheet(
 			TestID:        testID,
 			DisabledUntil: disabledUntil,
 			Notes:         notes,
+			Row:           i + 1,
 		})
 	}
 
